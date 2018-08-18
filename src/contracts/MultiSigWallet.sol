@@ -4,7 +4,9 @@ contract MultiSigWallet {
 
     address[] private signers;
     uint16 private requiredSigns;
+
     Transaction[] private transactions;
+    mapping(uint => mapping(address => bool)) private confirmations;
 
     struct Transaction{
         uint amount;
@@ -14,6 +16,9 @@ contract MultiSigWallet {
     }
 
     event TransactionAdded(uint indexed id);
+    event TransactionConfirmation(uint indexed id, address indexed signer);
+    event TransactionExecuted(uint indexed id);
+    event TransactionExecutionFailed(uint indexed id);
 
     constructor(address[] _signers, uint16 _requiredSigns) public{
 
@@ -25,7 +30,7 @@ contract MultiSigWallet {
     }
 
     modifier onlySigner(){
-        for(uint i = 0; i <= signers.length; i++){
+        for(uint i = 0; i < signers.length; i++){
             if(signers[i] == msg.sender){
                 _;
             }
@@ -33,12 +38,22 @@ contract MultiSigWallet {
         require(false);
     }
 
-    function addSigned(address signer) public onlySigner{
+    function addSigned(address _signer) public onlySigner{
+        require(_signer != address(0));
+        require(_signer != msg.sender);
 
+        signers.push(_signer);
     }
 
-    function removeSigner(address signer) public onlySigner{
+    function removeSigner(address _signer) public onlySigner{
+        require(_signer != address(0));
+        require(_signer != msg.sender);
 
+        for(uint i = 0; i < signers.length; i++){
+            if(signers[i] == _signer){
+                delete signers[i];
+            }
+        }
     }
 
     function addTransaction(uint _amount, address _destination, string _data) public returns (uint){
@@ -59,10 +74,46 @@ contract MultiSigWallet {
     }
 
     function confirmTransaction(uint _transactionId) public onlySigner{
-        
+        Transaction storage transaction = transactions[_transactionId];
+        require(!transaction.executed);
+        require(!isTransactionConfirmed(_transactionId));
+        require(!isTransactionConfirmedBySigner(_transactionId));
+
+        confirmations[_transactionId][msg.sender] = true;
+
+        emit TransactionConfirmation(_transactionId, msg.sender);
+
+        if(isTransactionConfirmed(_transactionId)){
+            executeTransaction(_transactionId);
+        }
     }
 
     function executeTransaction(uint _transactionId) internal onlySigner {
+        Transaction storage transaction = transactions[_transactionId];
+        if(isTransactionConfirmed(_transactionId) && !transaction.executed){
+            if (transaction.destination.call.value(transaction.amount)(transaction.data)){
+                transaction.executed = true;
+                emit TransactionExecuted(_transactionId);
+            }else {
+                transaction.executed = false;
+                emit TransactionExecutionFailed(_transactionId);
+            }
+        }
+    }
 
+    function isTransactionConfirmed(uint _transactionId) internal view returns (bool){
+        
+        uint confirmCount = 0;
+        for(uint i = 0; i < signers.length; i++){
+            if(confirmations[_transactionId][signers[i]]){
+                confirmCount++;
+            }
+        }
+
+        return confirmCount >= requiredSigns;
+    }
+
+    function isTransactionConfirmedBySigner(uint _transactionId) internal view onlySigner returns (bool){
+        return confirmations[_transactionId][msg.sender];
     }
 }
