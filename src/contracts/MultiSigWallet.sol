@@ -46,7 +46,7 @@ contract MultiSigWallet {
 
     function transferOwner(address _newOwner) public onlyOwner{
         require(_newOwner != address(0));
-        
+
         owner = _newOwner;
     }
 
@@ -102,6 +102,7 @@ contract MultiSigWallet {
 
     function executeTransaction(uint _transactionId) internal onlySigner {
         Transaction storage transaction = transactions[_transactionId];
+        require(transaction.amount <= this.balance);
         if(isTransactionConfirmed(_transactionId) && !transaction.executed){
             if (transaction.destination.call.value(transaction.amount)(transaction.data)){
                 transaction.executed = true;
