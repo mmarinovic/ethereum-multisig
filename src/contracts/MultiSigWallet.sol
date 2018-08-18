@@ -2,12 +2,12 @@ pragma solidity ^0.4.23;
 
 contract MultiSigWallet {
 
-    address public owner;
-    address[] private signers;
-    uint16 private requiredSigns;
+    address internal owner;
+    address[] internal signers;
+    uint16 internal requiredSigns;
 
-    Transaction[] private transactions;
-    mapping(uint => mapping(address => bool)) private confirmations;
+    Transaction[] internal transactions;
+    mapping(uint => mapping(address => bool)) internal confirmations;
 
     struct Transaction{
         uint amount;
@@ -31,7 +31,7 @@ contract MultiSigWallet {
     }
 
     modifier onlyOwner(){
-        require(msg.sender == owner)
+        require(msg.sender == owner);
         _;
     }
 
@@ -68,9 +68,9 @@ contract MultiSigWallet {
         }
     }
 
-    function addTransaction(uint _amount, address _destination, string _data) public returns (uint) onlyOwner {
+    function addTransaction(uint _amount, address _destination, string _data) public onlyOwner returns (uint) {
         require(_amount > 0);
-        require(this.balance >= _amount);
+        require(address(this).balance >= _amount);
         require(_destination != address(0));
 
         Transaction memory newTx = Transaction({
@@ -102,10 +102,15 @@ contract MultiSigWallet {
 
     function executeTransaction(uint _transactionId) internal onlySigner {
         Transaction storage transaction = transactions[_transactionId];
-        require(transaction.amount <= this.balance);
-        if(isTransactionConfirmed(_transactionId) && !transaction.executed){
+        require(transaction.amount <= address(this).balance);
+
+        bool isConfirmed = isTransactionConfirmed(_transactionId);
+
+        if(isConfirmed && !transaction.executed){
+
+            transaction.executed = true;
+
             if (transaction.destination.call.value(transaction.amount)(transaction.data)){
-                transaction.executed = true;
                 emit TransactionExecuted(_transactionId);
             }else {
                 transaction.executed = false;
