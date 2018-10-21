@@ -1,13 +1,16 @@
 pragma solidity ^0.4.23;
 
+import { Forwarder }  from "./Forwarder.sol";
+
 contract MultiSigWallet {
 
-    address internal owner;
-    address[] internal signers;
-    uint16 internal requiredSigns;
+    address private owner;
+    address[] private signers;
+    address[] public forwarders; 
+    uint16 private requiredSigns;
 
-    Transaction[] internal transactions;
-    mapping(uint => mapping(address => bool)) internal confirmations;
+    Transaction[] private transactions;
+    mapping(uint => mapping(address => bool)) private confirmations;
 
     struct Transaction{
         uint amount;
@@ -16,6 +19,7 @@ contract MultiSigWallet {
         bool executed;
     }
 
+    event Deposited(uint indexed amount, address indexed sender);
     event TransactionAdded(uint indexed id);
     event TransactionConfirmation(uint indexed id, address indexed signer);
     event TransactionExecuted(uint indexed id);
@@ -23,11 +27,17 @@ contract MultiSigWallet {
 
     constructor(address[] _signers, uint16 _requiredSigns) public{
 
-        require(_signers.length > 0);
-        require(_requiredSigns > 0);
+        require(_signers.length >= 3);
+        require(_requiredSigns >=2);
 
         signers = _signers;
         requiredSigns = _requiredSigns;
+    }
+
+    function() public payable{
+        if(msg.value > 0){
+            emit Deposited(msg.value, msg.sender);
+        }
     }
 
     modifier onlyOwner(){
@@ -50,7 +60,7 @@ contract MultiSigWallet {
         owner = _newOwner;
     }
 
-    function addSigned(address _signer) public onlyOwner{
+    function addSigner(address _signer) public onlyOwner{
         require(_signer != address(0));
         require(_signer != msg.sender);
 
@@ -100,7 +110,12 @@ contract MultiSigWallet {
         }
     }
 
-    function executeTransaction(uint _transactionId) internal onlySigner {
+    function deployNewForwarder() external onlyOwner {
+        Forwarder f = new Forwarder();
+        forwarders.push(address(f));
+    }
+
+    function executeTransaction(uint _transactionId) private onlySigner {
         Transaction storage transaction = transactions[_transactionId];
         require(transaction.amount <= address(this).balance);
 
@@ -119,7 +134,7 @@ contract MultiSigWallet {
         }
     }
 
-    function isTransactionConfirmed(uint _transactionId) internal view returns (bool){
+    function isTransactionConfirmed(uint _transactionId) private view returns (bool){
         
         uint confirmCount = 0;
         for(uint i = 0; i < signers.length; i++){
@@ -131,7 +146,7 @@ contract MultiSigWallet {
         return confirmCount >= requiredSigns;
     }
 
-    function isTransactionConfirmedBySigner(uint _transactionId) internal view returns (bool){
+    function isTransactionConfirmedBySigner(uint _transactionId) private view returns (bool){
         return confirmations[_transactionId][msg.sender];
     }
 }

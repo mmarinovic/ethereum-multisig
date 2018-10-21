@@ -1,0 +1,3 @@
+[submodule "src/ethereum-misc"]
+	path = src/ethereum-misc
+	url = git@github.com:mmarinovic/ethereum-misc.git
