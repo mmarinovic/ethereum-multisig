@@ -1,7 +1,7 @@
 pragma solidity ^0.4.23;
 
 import { Forwarder }  from "./Forwarder.sol";
-import "../ethereum-misc/src/contracts/Ownable.sol";
+import "mmarinovic-ethereumisc/contracts/Ownable.sol";
 
 contract MultiSigWallet is Ownable{
 

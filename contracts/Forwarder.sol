@@ -1,6 +1,6 @@
 pragma solidity ^0.4.23;
 
-import "../ethereum-misc/src/contracts/Ownable.sol";
+import "mmarinovic-ethereumisc/contracts/Ownable.sol";
 
 contract Forwarder is Ownable {
 
